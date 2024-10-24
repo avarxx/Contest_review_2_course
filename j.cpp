@@ -3,60 +3,64 @@
 #include <string>
 #include <vector>
 
-std::pair<std::string, std::string> scanf_data() {
-  std::string first_str, second_str;
-  std::cin >> first_str >> second_str;
-  return {first_str, second_str};
-}
-
-void print_answer(const std::vector<int>& first_index_vec, const std::vector<int>& second_index_vec) {
-  std::cout << first_index_vec.size() << "\n";
-  for (int tmp = first_index_vec.size() - 1; tmp >= 0; --tmp) {
-    std::cout << first_index_vec[tmp] << " ";
+void print_matching_positions(
+    const std::vector<std::pair<size_t, size_t>>& positions) {
+  std::cout << positions.size() << "\n";
+  for (const auto& [first_pos, second_pos] : positions) {
+    std::cout << first_pos << " ";
   }
   std::cout << "\n";
-  for (int tmp = second_index_vec.size() - 1; tmp >= 0; --tmp) {
-    std::cout << second_index_vec[tmp] << " ";
+  for (const auto& [first_pos, second_pos] : positions) {
+    std::cout << second_pos << " ";
   }
   std::cout << "\n";
 }
 
-std::pair<std::vector<int>, std::vector<int>> solve_lcs(const std::string& first_str, const std::string& second_str) {
-  int first_str_size = first_str.size();
-  int second_str_size = second_str.size();
-  std::vector<std::vector<int>> dp(first_str_size + 1, std::vector<int>(second_str_size + 1, 0));
-  for (int tmp = 1; tmp <= first_str_size; ++tmp) {
-    for (int sec_ind = 1; sec_ind <= second_str_size; ++sec_ind) {
-      if (first_str[tmp - 1] == second_str[sec_ind - 1]) {
-        dp[tmp][sec_ind] = dp[tmp - 1][sec_ind - 1] + 1;
+std::vector<std::pair<size_t, size_t>> solve_lcs(
+    const std::string& first_str, const std::string& second_str) {
+  const size_t first_length = first_str.size();
+  const size_t second_length = second_str.size();
+
+  std::vector<std::vector<size_t>> lcs_lengths(
+      first_length + 1, std::vector<size_t>(second_length + 1, 0));
+
+  for (size_t i = 1; i <= first_length; ++i) {
+    for (size_t j = 1; j <= second_length; ++j) {
+      if (first_str[i - 1] == second_str[j - 1]) {
+        lcs_lengths[i][j] = lcs_lengths[i - 1][j - 1] + 1;
       } else {
-        dp[tmp][sec_ind] = std::max(dp[tmp - 1][sec_ind], dp[tmp][sec_ind - 1]);
+        lcs_lengths[i][j] =
+            std::max(lcs_lengths[i - 1][j], lcs_lengths[i][j - 1]);
       }
     }
   }
 
-  std::vector<int> first_index_vec, second_index_vec;
-  int tmp = first_str_size;
-  int sec_ind = second_str_size;
-  while (tmp > 0 && sec_ind > 0) {
-    if (first_str[tmp - 1] == second_str[sec_ind - 1]) {
-      first_index_vec.push_back(tmp);
-      second_index_vec.push_back(sec_ind);
-      --tmp;
-      --sec_ind;
-    } else if (dp[tmp - 1][sec_ind] > dp[tmp][sec_ind - 1]) {
-      --tmp;
+  std::vector<std::pair<size_t, size_t>> matching_positions;
+  size_t i = first_length;
+  size_t j = second_length;
+
+  while (i > 0 && j > 0) {
+    if (first_str[i - 1] == second_str[j - 1]) {
+      matching_positions.push_back({i, j});
+      --i;
+      --j;
+    } else if (lcs_lengths[i - 1][j] > lcs_lengths[i][j - 1]) {
+      --i;
     } else {
-      --sec_ind;
+      --j;
     }
   }
 
-  return {first_index_vec, second_index_vec};
+  std::reverse(matching_positions.begin(), matching_positions.end());
+  return matching_positions;
 }
 
 int main() {
-  auto [first_str, second_str] = scanf_data();
-  auto [first_index_vec, second_index_vec] = solve_lcs(first_str, second_str);
-  print_answer(first_index_vec, second_index_vec);
+  std::string first_str, second_str;
+  std::cin >> first_str >> second_str;
+
+  auto matching_positions = solve_lcs(first_str, second_str);
+  print_matching_positions(matching_positions);
+
   return 0;
 }
