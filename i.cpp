@@ -2,84 +2,102 @@
 #include <iostream>
 #include <vector>
 
-void scanf_data(int& streetSize, std::vector<int>& city) {
-  std::cin >> streetSize;
-  city.resize(streetSize);
-  for (int i = 0; i < streetSize; ++i) {
-    std::cin >> city[i];
+enum class SequenceType {
+  INCREASING_FIRST,  // Начинается с возрастания
+  DECREASING_FIRST   // Начинается с убывания
+};
+
+struct SequenceElement {
+  size_t length;
+  int previous_index;
+  bool is_increasing;
+
+  SequenceElement() : length(1), previous_index(-1), is_increasing(false) {}
+};
+
+struct AlternatingSequence {
+  std::vector<int> elements;
+  size_t length;
+
+  AlternatingSequence(std::vector<int> seq, size_t len)
+      : elements(std::move(seq)), length(len) {}
+};
+
+std::vector<int> read_street_heights() {
+  size_t street_size;
+  std::cin >> street_size;
+
+  std::vector<int> heights(street_size);
+  for (auto& height : heights) {
+    std::cin >> height;
   }
+  return heights;
 }
 
-void print_data(int maxSequenceLength, const std::vector<int>& sequence) {
-  std::cout << maxSequenceLength << std::endl;
-  for (int elem : sequence) {
-    std::cout << elem << " ";
+AlternatingSequence find_longest_alternating_sequence(
+    const std::vector<int>& heights, SequenceType type) {
+  const size_t size = heights.size();
+  std::vector<SequenceElement> dp(size);
+
+  size_t max_length = 1;
+  size_t end_index = 0;
+
+  for (auto& element : dp) {
+    element.is_increasing = (type == SequenceType::INCREASING_FIRST);
   }
-  std::cout << std::endl;
-}
 
-int findLongestAlternatingSequence(std::vector<int>& prev,
-                                   const std::vector<int>& city,
-                                   int& maxLength) {
-  int streetSize = city.size();
-  int maxStreet = 0;
-  std::vector<int> dp(streetSize, 1);
-  std::vector<bool> isIncreasing(streetSize, false);
+  for (size_t current = 1; current < size; ++current) {
+    for (size_t previous = 0; previous < current; ++previous) {
+      const bool comparison = (dp[previous].is_increasing)
+                                  ? heights[current] < heights[previous]
+                                  : heights[current] > heights[previous];
 
-  for (int current = 1; current < streetSize; ++current) {
-    for (int previous = 0; previous < current; ++previous) {
-      if ((isIncreasing[previous] && city[current] < city[previous]) ||
-          (!isIncreasing[previous] && city[current] > city[previous])) {
-        if (dp[current] < dp[previous] + 1) {
-          dp[current] = dp[previous] + 1;
-          prev[current] = previous; 
-          isIncreasing[current] = !isIncreasing[previous];
-          if (dp[current] > maxLength) {
-            maxLength = dp[current];
-            maxStreet = current;
-          }
+      if (comparison && dp[current].length < dp[previous].length + 1) {
+        dp[current].length = dp[previous].length + 1;
+        dp[current].previous_index = previous;
+        dp[current].is_increasing = !dp[previous].is_increasing;
+
+        if (dp[current].length > max_length) {
+          max_length = dp[current].length;
+          end_index = current;
         }
       }
     }
   }
-  return maxStreet;
-}
 
-std::vector<int> reconstructSequence(int currentIndex,
-                                     const std::vector<int>& city,
-                                     const std::vector<int>& prev) {
   std::vector<int> sequence;
-  while (currentIndex != -1) {
-    sequence.push_back(city[currentIndex]);
-    currentIndex = prev[currentIndex];
+  for (size_t i = end_index; i != static_cast<size_t>(-1);
+       i = dp[i].previous_index) {
+    sequence.push_back(heights[i]);
   }
   std::reverse(sequence.begin(), sequence.end());
-  return sequence;
+
+  return AlternatingSequence(sequence, max_length);
+}
+
+AlternatingSequence find_best_alternating_sequence(
+    const std::vector<int>& heights) {
+  auto increasing_first = find_longest_alternating_sequence(
+      heights, SequenceType::INCREASING_FIRST);
+  auto decreasing_first = find_longest_alternating_sequence(
+      heights, SequenceType::DECREASING_FIRST);
+
+  return (increasing_first.length >= decreasing_first.length)
+             ? increasing_first
+             : decreasing_first;
+}
+
+void print_sequence(const AlternatingSequence& sequence) {
+  std::cout << sequence.length << '\n';
+  for (int height : sequence.elements) {
+    std::cout << height << ' ';
+  }
+  std::cout << '\n';
 }
 
 int main() {
-  int streetSize = 0;
-  std::vector<int> city;
-  scanf_data(streetSize, city);
-
-  int maxLength1 = 1, maxLength2 = 1;
-  std::vector<int> prev1(streetSize, -1), prev2(streetSize, -1);
-
-  int endIndex1 = findLongestAlternatingSequence(prev1, city, maxLength1);
-
-  std::vector<int> reversedCity = city;
-  for (int& value : reversedCity) {
-    value *= -1;
-  }
-  int endIndex2 =
-      findLongestAlternatingSequence(prev2, reversedCity, maxLength2);
-
-  int maxLength = std::max(maxLength1, maxLength2);
-  std::vector<int> result = (maxLength1 > maxLength2)
-                                ? reconstructSequence(endIndex1, city, prev1)
-                                : reconstructSequence(endIndex2, city, prev2);
-
-  print_data(maxLength, result);
-
+  auto heights = read_street_heights();
+  auto best_sequence = find_best_alternating_sequence(heights);
+  print_sequence(best_sequence);
   return 0;
 }
