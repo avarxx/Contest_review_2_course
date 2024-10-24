@@ -1,81 +1,113 @@
+#include <array>
 #include <iostream>
-#include <vector>
 
-const unsigned long long mod = 1000003;
+template <unsigned long long MOD>
+class ModInt {
+  unsigned long long value;
 
-std::vector<std::vector<unsigned long long>> matrix_multiply(
-    const std::vector<std::vector<unsigned long long>>& matrix1,
-    const std::vector<std::vector<unsigned long long>>& matrix2) {
-  std::vector<std::vector<unsigned long long>> result(
-      5, std::vector<unsigned long long>(5, 0));
-  for (int i = 0; i < 5; i++) {
-    for (int j = 0; j < 5; j++) {
-      for (int n = 0; n < 5; n++) {
-        result[i][j] =
-            (result[i][j] + (matrix1[i][n] * matrix2[n][j]) % mod) % mod;
+ public:
+  ModInt(unsigned long long val = 0) : value(val % MOD) {}
+
+  ModInt& operator+=(const ModInt& other) {
+    value = (value + other.value) % MOD;
+    return *this;
+  }
+
+  ModInt& operator*=(const ModInt& other) {
+    value = (value * other.value) % MOD;
+    return *this;
+  }
+
+  ModInt operator+(const ModInt& other) const { return ModInt(*this) += other; }
+
+  ModInt operator*(const ModInt& other) const { return ModInt(*this) *= other; }
+
+  operator unsigned long long() const { return value; }
+};
+
+template <typename T, size_t N>
+class Matrix {
+  std::array<std::array<T, N>, N> data;
+
+ public:
+  Matrix() {
+    for (size_t i = 0; i < N; i++) {
+      for (size_t j = 0; j < N; j++) {
+        data[i][j] = (i == j) ? T(1) : T(0);
       }
     }
+  }
+
+  Matrix(const std::initializer_list<std::initializer_list<T>>& init) {
+    size_t i = 0;
+    for (const auto& row : init) {
+      size_t j = 0;
+      for (const auto& val : row) {
+        data[i][j] = val;
+        j++;
+      }
+      i++;
+    }
+  }
+
+  Matrix operator*(const Matrix& other) const {
+    Matrix result;
+    for (size_t i = 0; i < N; i++) {
+      for (size_t j = 0; j < N; j++) {
+        result.data[i][j] = T(0);
+        for (size_t k = 0; k < N; k++) {
+          result.data[i][j] += data[i][k] * other.data[k][j];
+        }
+      }
+    }
+    return result;
+  }
+
+  const std::array<T, N>& operator[](size_t i) const { return data[i]; }
+};
+
+template <typename T, size_t N>
+Matrix<T, N> fast_power(Matrix<T, N> base, unsigned long long exp) {
+  Matrix<T, N> result;
+
+  while (exp > 0) {
+    if (exp % 2 == 1) {
+      result = result * base;
+    }
+    base = base * base;
+    exp /= 2;
   }
   return result;
 }
 
-std::vector<std::vector<unsigned long long>> fast_deg(
-    std::vector<std::vector<unsigned long long>>& matrix,
-    unsigned unsigned long long deg) {
-  std::vector<std::vector<unsigned long long>> results(
-      5, std::vector<unsigned long long>(5, 0));
-  for (int i = 0; i < 5; i++) {
-    results[i][i] = 1;
-  }
+unsigned long long count_hops(unsigned long long n) {
+  constexpr unsigned long long MOD = 1000003;
+  constexpr size_t MATRIX_SIZE = 5;
+  using ModMatrix = Matrix<ModInt<MOD>, MATRIX_SIZE>;
 
-  while (deg > 0) {
-    if (deg % 2) {
-      results = matrix_multiply(results, matrix);
-    }
-    matrix = matrix_multiply(matrix, matrix);
-    deg /= 2;
-  }
-  return results;
-}
+  std::array<ModInt<MOD>, MATRIX_SIZE> f = {1, 1, 2, 4, 8};
 
-unsigned unsigned long long count_hops(unsigned long long n) {
-  unsigned long long f5 = 8, f4 = 4, f3 = 2, f2 = 1, f1 = 1;
-
-  std::vector<std::vector<unsigned long long>> perexod_matrix = {
-      {1, 1, 1, 1, 1},
-      {1, 0, 0, 0, 0},
-      {0, 1, 0, 0, 0},
-      {0, 0, 1, 0, 0},
-      {0, 0, 0, 1, 0}};
   if (n <= 0) return 0;
-  switch (n) {
-    case 1:
-      return f1;
-    case 2:
-      return f2;
-    case 3:
-      return f3;
-    case 4:
-      return f4;
-    case 5:
-      return f5;
-    default:
-      break;
+  if (n <= MATRIX_SIZE) return f[n - 1];
+
+  ModMatrix transition_matrix = {{{1, 1, 1, 1, 1},
+                                  {1, 0, 0, 0, 0},
+                                  {0, 1, 0, 0, 0},
+                                  {0, 0, 1, 0, 0},
+                                  {0, 0, 0, 1, 0}}};
+
+  ModMatrix result = fast_power(transition_matrix, n - MATRIX_SIZE);
+
+  ModInt<MOD> fn = 0;
+  for (size_t i = 0; i < MATRIX_SIZE; i++) {
+    fn += result[0][i] * f[MATRIX_SIZE - 1 - i];
   }
 
-  std::vector<std::vector<unsigned long long>> matrix =
-      fast_deg(perexod_matrix, n - 5);
-
-  unsigned unsigned long long fn =
-      (matrix[0][0] * f5 % mod + matrix[0][1] * f4 % mod +
-       matrix[0][2] * f3 % mod + matrix[0][3] * f2 % mod +
-       matrix[0][4] * f1 % mod) %
-      mod;
   return fn;
 }
 
 int main() {
-  unsigned unsigned long long n = 0;
+  unsigned long long n = 0;
   std::cin >> n;
   std::cout << count_hops(n) << "\n";
   return 0;
