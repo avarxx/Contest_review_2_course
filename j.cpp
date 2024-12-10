@@ -1,46 +1,43 @@
 #include <array>
-#include <cmath>
 #include <iostream>
 #include <queue>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cmath>
+#include <algorithm>
 
-
-class Puzzle {
+class EightPuzzleSolver {
  public:
-  explicit Puzzle(const std::array<int, 9>& initial)
-      : initial_state(initial), goal_state{1, 2, 3, 4, 5, 6, 7, 8, 0} {}
+  explicit EightPuzzleSolver(const std::array<int32_t, 9>& initial)
+      : initial_board(initial), target_board{1, 2, 3, 4, 5, 6, 7, 8, 0} {}
 
-  int solve() {
-    if (!is_solvable(initial_state)) {
-      std::cout << -1 << std::endl;
+  int32_t solve() {
+    if (!can_solve_puzzle(initial_board)) {
+      std::cout << -1 << '\n';
       return -1;
     }
 
-    std::priority_queue<Node, std::vector<Node>, NodeComparator> open_set;
-    std::unordered_map<std::string, bool> closed_set;
+    std::priority_queue<BoardState, std::vector<BoardState>, BoardStateComparator> open_queue;
+    std::unordered_map<std::string, bool> visited_states;
 
-    Node start_node(initial_state, "", 0,
-                    get_manhattan_distance(initial_state));
-    open_set.push(start_node);
+    BoardState start(initial_board, "", 0, calculate_manhattan_distance(initial_board));
+    open_queue.push(start);
 
-    while (!open_set.empty()) {
-      Node current = open_set.top();
-      open_set.pop();
+    while (!open_queue.empty()) {
+      BoardState current = open_queue.top();
+      open_queue.pop();
 
-      if (current.state == goal_state) {
-        std::cout << current.cost << std::endl;
-        std::cout << current.path << std::endl;
+      if (current.state == target_board) {
+        std::cout << current.cost << ' ' << current.path << '\n';
         return current.cost;
       }
 
-      closed_set[state_to_string(current.state)] = true;
+      visited_states[board_to_string(current.state)] = true;
 
-      for (const auto& neighbor : get_neighbors(current)) {
-        if (!closed_set[state_to_string(neighbor.state)]) {
-          open_set.push(neighbor);
+      for (const auto& next_state : generate_next_states(current)) {
+        if (!visited_states[board_to_string(next_state.state)]) {
+          open_queue.push(next_state);
         }
       }
     }
@@ -49,33 +46,33 @@ class Puzzle {
   }
 
  private:
-  struct Node {
-    std::array<int, 9> state;
+  struct BoardState {
+    std::array<int32_t, 9> state;
     std::string path;
-    int cost;
-    int heuristic;
+    int32_t cost;
+    int32_t heuristic;
 
-    Node(const std::array<int, 9>& s, const std::string& p, int c, int h)
+    BoardState(const std::array<int32_t, 9>& s, const std::string& p, int32_t c, int32_t h)
         : state(s), path(p), cost(c), heuristic(h) {}
 
-    int get_f_score() const { return cost + heuristic; }
+    int32_t get_total_cost() const { return cost + heuristic; }
   };
 
-  struct NodeComparator {
-    bool operator()(const Node& a, const Node& b) const {
-      return a.get_f_score() > b.get_f_score();
+  struct BoardStateComparator {
+    bool operator()(const BoardState& a, const BoardState& b) const {
+      return a.get_total_cost() > b.get_total_cost();
     }
   };
 
-  std::array<int, 9> initial_state;
-  const std::array<int, 9> goal_state;
+  std::array<int32_t, 9> initial_board;
+  const std::array<int32_t, 9> target_board;
 
-  bool is_solvable(const std::array<int, 9>& state) const {
-    int inversions = 0;
-    for (int i = 0; i < 9; ++i) {
-      if (state[i] == 0) continue;
-      for (int j = i + 1; j < 9; ++j) {
-        if (state[j] != 0 && state[i] > state[j]) {
+  bool can_solve_puzzle(const std::array<int32_t, 9>& board) const {
+    int32_t inversions = 0;
+    for (size_t i = 0; i < 9; ++i) {
+      if (board[i] == 0) continue;
+      for (size_t j = i + 1; j < 9; ++j) {
+        if (board[j] != 0 && board[i] > board[j]) {
           ++inversions;
         }
       }
@@ -83,66 +80,68 @@ class Puzzle {
     return inversions % 2 == 0;
   }
 
-  int get_manhattan_distance(const std::array<int, 9>& state) const {
-    int distance = 0;
-    for (int i = 0; i < 9; ++i) {
-      if (state[i] != 0) {
-        int target_x = (state[i] - 1) / 3;
-        int target_y = (state[i] - 1) % 3;
-        int current_x = i / 3;
-        int current_y = i % 3;
-        distance +=
-            std::abs(current_x - target_x) + std::abs(current_y - target_y);
+  int32_t calculate_manhattan_distance(const std::array<int32_t, 9>& board) const {
+    int32_t distance = 0;
+    for (size_t i = 0; i < 9; ++i) {
+      if (board[i] != 0) {
+        int32_t target_x = (board[i] - 1) / 3;
+        int32_t target_y = (board[i] - 1) % 3;
+        int32_t current_x = static_cast<int32_t>(i) / 3;
+        int32_t current_y = static_cast<int32_t>(i) % 3;
+        distance += std::abs(current_x - target_x) + std::abs(current_y - target_y);
       }
     }
     return distance;
   }
 
-  std::string state_to_string(const std::array<int, 9>& state) const {
-    std::string s;
-    for (int num : state) {
-      s += std::to_string(num);
+  std::string board_to_string(const std::array<int32_t, 9>& board) const {
+    std::string result;
+    for (int32_t num : board) {
+      result += std::to_string(num);
     }
-    return s;
+    return result;
   }
 
-  std::vector<Node> get_neighbors(const Node& current) const {
-    std::vector<Node> neighbors;
-    static const std::array<int, 4> dx = {-1, 1, 0, 0};
-    static const std::array<int, 4> dy = {0, 0, -1, 1};
+  std::vector<BoardState> generate_next_states(const BoardState& current) const {
+    std::vector<BoardState> next_states;
+    static const std::array<int32_t, 4> dx = {-1, 1, 0, 0};
+    static const std::array<int32_t, 4> dy = {0, 0, -1, 1};
     static const std::array<char, 4> directions = {'U', 'D', 'L', 'R'};
 
-    int zero_pos = 0;
+    size_t zero_pos = 0;
     while (current.state[zero_pos] != 0) {
       ++zero_pos;
     }
-    int x = zero_pos / 3;
-    int y = zero_pos % 3;
+    int32_t x = static_cast<int32_t>(zero_pos) / 3;
+    int32_t y = static_cast<int32_t>(zero_pos) % 3;
 
-    for (int i = 0; i < 4; ++i) {
-      int new_x = x + dx[i];
-      int new_y = y + dy[i];
+    for (size_t i = 0; i < 4; ++i) {
+      int32_t new_x = x + dx[i];
+      int32_t new_y = y + dy[i];
       if (new_x >= 0 && new_x < 3 && new_y >= 0 && new_y < 3) {
-        std::array<int, 9> new_state = current.state;
-        std::swap(new_state[zero_pos], new_state[new_x * 3 + new_y]);
-        neighbors.emplace_back(new_state, current.path + directions[i],
-                               current.cost + 1,
-                               get_manhattan_distance(new_state));
+        std::array<int32_t, 9> new_board = current.state;
+        std::swap(new_board[zero_pos], new_board[static_cast<size_t>(new_x * 3 + new_y)]);
+        next_states.emplace_back(
+            new_board, 
+            current.path + directions[i], 
+            current.cost + 1, 
+            calculate_manhattan_distance(new_board)
+        );
       }
     }
 
-    return neighbors;
+    return next_states;
   }
 };
 
 int main() {
-  std::array<int, 9> initial_state;
-  for (int i = 0; i < 9; ++i) {
-    std::cin >> initial_state[i];
+  std::array<int32_t, 9> initial_board;
+  for (size_t i = 0; i < 9; ++i) {
+    std::cin >> initial_board[i];
   }
 
-  Puzzle puzzle(initial_state);
-  puzzle.solve();
+  EightPuzzleSolver puzzle_solver(initial_board);
+  puzzle_solver.solve();
 
   return 0;
 }
