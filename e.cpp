@@ -73,21 +73,36 @@ class Graph {
   }
 };
 
-int main() {
-  int n;
-  int m;
-  std::cin >> n >> m;
-  Graph graph(n);
-  int first;
-  int second;
+void readInput(Graph& graph, int m) {
+  int first, second;
   while (m--) {
     std::cin >> first >> second;
     graph.Add(first, second);
   }
-  graph.FindComponents();
+}
+
+void printResult(const Graph& graph) {
   std::vector<int> components = graph.GetComponents();
+  
   std::cout << graph.NumComponents() << "\n";
   for (size_t i = 1; i < components.size(); ++i) {
     std::cout << components[i] << " ";
   }
+  std::cout << "\n";
+}
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+
+  int n, m;
+  std::cin >> n >> m;
+  
+  Graph graph(n);
+  
+  readInput(graph, m);
+  graph.FindComponents();
+  printResult(graph);
+
+  return 0;
 }
