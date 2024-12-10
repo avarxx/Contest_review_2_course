@@ -3,119 +3,143 @@
 #include <string>
 #include <vector>
 
-long long pow2(long long n) { return 1 << n; }
+long long calculatePowerOfTwo(long long n) { return 1 << n; }
 
-struct InputData {
-  long long n;
-  std::vector<long long> in_first;
-  std::vector<long long> in_second;
-  std::vector<long long> bit;
+struct TerritoryData {
+  long long gridSize;
+  std::vector<long long> firstQuadrantTerritories;
+  std::vector<long long> secondQuadrantTerritories;
+  std::vector<long long> crossQuadrantTerritories;
 };
 
-InputData readInput() {
-  InputData data;
-  std::cin >> data.n;
+TerritoryData readTerritoryInput() {
+  TerritoryData data;
+  std::cin >> data.gridSize;
 
-  long long h = data.n / 2;
-  data.in_first.resize(h);
-  data.in_second.resize(data.n - h);
-  data.bit.resize(h);
+  long long halfGridSize = data.gridSize / 2;
+  data.firstQuadrantTerritories.resize(halfGridSize);
+  data.secondQuadrantTerritories.resize(data.gridSize - halfGridSize);
+  data.crossQuadrantTerritories.resize(halfGridSize);
 
-  std::string s;
-  for (long long i = 0; i < data.n; ++i) {
-    std::cin >> s;
-    for (long long j = 0; j < data.n; ++j) {
-      if (s[j] != '1') continue;
+  std::string territoryLine;
+  for (long long row = 0; row < data.gridSize; ++row) {
+    std::cin >> territoryLine;
+    for (long long col = 0; col < data.gridSize; ++col) {
+      if (territoryLine[col] != '1') continue;
 
-      if (i < h && j < h)
-        data.in_first[i] += pow2(j);
-      else if (i >= h && j >= h)
-        data.in_second[i - h] += pow2(j - h);
-      else if (i < h && j >= h)
-        data.bit[i] += pow2(j - h);
+      if (row < halfGridSize && col < halfGridSize)
+        data.firstQuadrantTerritories[row] += calculatePowerOfTwo(col);
+      else if (row >= halfGridSize && col >= halfGridSize)
+        data.secondQuadrantTerritories[row - halfGridSize] +=
+            calculatePowerOfTwo(col - halfGridSize);
+      else if (row < halfGridSize && col >= halfGridSize)
+        data.crossQuadrantTerritories[row] +=
+            calculatePowerOfTwo(col - halfGridSize);
     }
   }
   return data;
 }
 
-std::vector<bool> processFirst(const std::vector<long long>& in_first,
-                               long long h) {
-  std::vector<bool> first(pow2(h), true);
-  long long old = -1, temp, help;
+std::vector<bool> calculateFirstQuadrantValidityMasks(
+    const std::vector<long long>& firstQuadrantTerritories,
+    long long halfGridSize) {
+  std::vector<bool> validFirstQuadrantMasks(calculatePowerOfTwo(halfGridSize),
+                                            true);
+  long long currentPowerOfTwoIndex = -1, tempMask, helpMask;
 
-  for (long long mask = 1; mask < pow2(h); ++mask) {
+  for (long long mask = 1; mask < calculatePowerOfTwo(halfGridSize); ++mask) {
     if (!(mask & (mask - 1))) {
-      ++old;
+      ++currentPowerOfTwoIndex;
       continue;
     }
 
-    help = mask - pow2(old);
-    if (!first[help]) {
-      first[mask] = false;
+    helpMask = mask - calculatePowerOfTwo(currentPowerOfTwoIndex);
+    if (!validFirstQuadrantMasks[helpMask]) {
+      validFirstQuadrantMasks[mask] = false;
       continue;
     }
 
-    temp = help ^ in_first[old];
-    if (temp != in_first[old] - help) {
-      first[mask] = false;
+    tempMask = helpMask ^ firstQuadrantTerritories[currentPowerOfTwoIndex];
+    if (tempMask !=
+        firstQuadrantTerritories[currentPowerOfTwoIndex] - helpMask) {
+      validFirstQuadrantMasks[mask] = false;
     }
   }
-  first[0] = true;
-  return first;
+  validFirstQuadrantMasks[0] = true;
+  return validFirstQuadrantMasks;
 }
 
-std::vector<int> processSecond(const std::vector<long long>& in_second,
-                               long long n) {
-  long long h = n - n / 2;
-  std::vector<int> second(pow2(h), 1);
-  long long old = -1, temp, help;
+std::vector<int> calculateSecondQuadrantValidityDistribution(
+    const std::vector<long long>& secondQuadrantTerritories,
+    long long gridSize) {
+  long long halfGridSize = gridSize - gridSize / 2;
+  std::vector<int> secondQuadrantValidityDistribution(
+      calculatePowerOfTwo(halfGridSize), 1);
+  long long currentPowerOfTwoIndex = -1, tempMask, helpMask;
 
-  for (long long mask = 1; mask < pow2(h); ++mask) {
+  for (long long mask = 1; mask < calculatePowerOfTwo(halfGridSize); ++mask) {
     if (!(mask & (mask - 1))) {
-      ++old;
+      ++currentPowerOfTwoIndex;
       continue;
     }
 
-    help = mask - pow2(old);
-    temp = help ^ in_second[old];
-    if ((temp != in_second[old] - help) || (!second[help])) second[mask] = 0;
+    helpMask = mask - calculatePowerOfTwo(currentPowerOfTwoIndex);
+    tempMask = helpMask ^ secondQuadrantTerritories[currentPowerOfTwoIndex];
+    if ((tempMask !=
+         secondQuadrantTerritories[currentPowerOfTwoIndex] - helpMask) ||
+        (!secondQuadrantValidityDistribution[helpMask])) {
+      secondQuadrantValidityDistribution[mask] = 0;
+    }
   }
 
-  second[0] = 0;
+  secondQuadrantValidityDistribution[0] = 0;
 
-  for (long long i = 0; i < h; ++i) {
-    for (long long mask = 1; mask < pow2(h); ++mask) {
-      if (!((mask >> i) % 2)) {
-        second[mask + pow2(i)] += second[mask];
+  for (long long bitIndex = 0; bitIndex < halfGridSize; ++bitIndex) {
+    for (long long mask = 1; mask < calculatePowerOfTwo(halfGridSize); ++mask) {
+      if (!((mask >> bitIndex) % 2)) {
+        secondQuadrantValidityDistribution[mask +
+                                           calculatePowerOfTwo(bitIndex)] +=
+            secondQuadrantValidityDistribution[mask];
       }
     }
   }
 
-  return second;
+  return secondQuadrantValidityDistribution;
 }
 
-std::vector<long long> count(long long n,
-                             const std::vector<long long>& bit) {
-  std::vector<long long> all(pow2(n / 2), 0);
-  all[0] = pow2(n - n / 2) - 1;
-  long long old = -1;
+std::vector<long long> calculateCrossQuadrantTerritoryMasks(
+    long long gridSize,
+    const std::vector<long long>& crossQuadrantTerritories) {
+  std::vector<long long> crossQuadrantMasks(calculatePowerOfTwo(gridSize / 2),
+                                            0);
+  crossQuadrantMasks[0] = calculatePowerOfTwo(gridSize - gridSize / 2) - 1;
+  long long currentPowerOfTwoIndex = -1;
 
-  for (long long mask = 1; mask < pow2(n / 2); ++mask) {
+  for (long long mask = 1; mask < calculatePowerOfTwo(gridSize / 2); ++mask) {
     if (!(mask & (mask - 1)))
-      all[mask] = bit[++old];
+      crossQuadrantMasks[mask] =
+          crossQuadrantTerritories[++currentPowerOfTwoIndex];
     else
-      all[mask] = all[mask - pow2(old)] & bit[old];
+      crossQuadrantMasks[mask] =
+          crossQuadrantMasks[mask -
+                             calculatePowerOfTwo(currentPowerOfTwoIndex)] &
+          crossQuadrantTerritories[currentPowerOfTwoIndex];
   }
-  return all;
+  return crossQuadrantMasks;
 }
 
-size_t get(const std::vector<bool>& first, const std::vector<int>& second,
-           const std::vector<long long>& all, long long n) {
-  size_t ans = 0;
-  for (long long mask = 0; mask < pow2(n / 2); ++mask) {
-    if (first[mask]) ans += second[all[mask]] + 1;
+size_t calculateValidTerritoryDistributions(
+    const std::vector<bool>& firstQuadrantValidityMasks,
+    const std::vector<int>& secondQuadrantValidityDistribution,
+    const std::vector<long long>& crossQuadrantMasks, long long gridSize) {
+  size_t validDistributionCount = 0;
+  for (long long mask = 0; mask < calculatePowerOfTwo(gridSize / 2); ++mask) {
+    if (firstQuadrantValidityMasks[mask]) {
+      validDistributionCount +=
+          secondQuadrantValidityDistribution[crossQuadrantMasks[mask]] + 1;
+    }
   }
-  return ans;
+  return validDistributionCount;
 }
 
 int main() {
@@ -123,13 +147,23 @@ int main() {
   std::cout.tie(0);
   std::cin.tie(0);
 
-  InputData data = readInput();
+  TerritoryData territoryData = readTerritoryInput();
 
-  auto first = processFirst(data.in_first, data.n / 2);
-  auto second = processSecond(data.in_second, data.n);
-  auto all = count(data.n, data.bit);
+  auto firstQuadrantValidityMasks = calculateFirstQuadrantValidityMasks(
+      territoryData.firstQuadrantTerritories, territoryData.gridSize / 2);
 
-  std::cout << get(first, second, all, data.n) << '\n';
+  auto secondQuadrantValidityDistribution =
+      calculateSecondQuadrantValidityDistribution(
+          territoryData.secondQuadrantTerritories, territoryData.gridSize);
+
+  auto crossQuadrantMasks = calculateCrossQuadrantTerritoryMasks(
+      territoryData.gridSize, territoryData.crossQuadrantTerritories);
+
+  std::cout << calculateValidTerritoryDistributions(
+                   firstQuadrantValidityMasks,
+                   secondQuadrantValidityDistribution, crossQuadrantMasks,
+                   territoryData.gridSize)
+            << '\n';
 
   return 0;
 }
