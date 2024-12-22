@@ -26,45 +26,46 @@ struct ResellersEdge {
   T flow;
   int reverse_index;
 
-  ResellersEdge(int f, int t, T c, T fl, int ri)
-      : from(f), to(t), capacity(c), flow(fl), reverse_index(ri) {}
+  ResellersEdge(int source, int target, T edge_capacity, T edge_flow, int reverse_idx)
+      : from(source), to(target), capacity(edge_capacity), flow(edge_flow), 
+        reverse_index(reverse_idx) {}
 };
 
 template <typename T>
 class GraphVisitor {
- public:
-  virtual void discover_vertex(int v, const Graph<T>& g) = 0;
-  virtual void examine_edge(const ResellersEdge<T>& e, const Graph<T>& g) = 0;
+public:
+  virtual void discover_vertex(int vertex, const Graph<T>& graph) = 0;
+  virtual void examine_edge(const ResellersEdge<T>& edge, const Graph<T>& graph) = 0;
   virtual ~GraphVisitor() = default;
 };
 
 template <typename T>
 class LevelCalculationVisitor : public GraphVisitor<T> {
- private:
+private:
   std::vector<int>& level;
 
- public:
-  LevelCalculationVisitor(std::vector<int>& l) : level(l) {}
+public:
+  LevelCalculationVisitor(std::vector<int>& vertex_levels) : level(vertex_levels) {}
 
-  void discover_vertex(int v, const Graph<T>& g) override {
-    for (const auto& ResellersEdge : g.edges(v)) {
-      if (level[ResellersEdge.to] == -1 && ResellersEdge.flow < ResellersEdge.capacity) {
-        level[ResellersEdge.to] = level[v] + 1;
+  void discover_vertex(int vertex, const Graph<T>& graph) override {
+    for (const auto& edge : graph.edges(vertex)) {
+      if (level[edge.to] == -1 && edge.flow < edge.capacity) {
+        level[edge.to] = level[vertex] + 1;
       }
     }
   }
 
-  void examine_edge(const ResellersEdge<T>& e, const Graph<T>& g) override {}
+  void examine_edge(const ResellersEdge<T>& edge, const Graph<T>& graph) override {}
 };
 
 template <typename T>
 class Graph {
- protected:
+protected:
   int vertex_count;
   std::vector<std::vector<ResellersEdge<T>>> adjacency_list;
 
- public:
-  explicit Graph(int n) : vertex_count(n), adjacency_list(n) {}
+public:
+  explicit Graph(int vertices) : vertex_count(vertices), adjacency_list(vertices) {}
 
   void add_edge(int from, int to, T capacity) {
     ResellersEdge<T> forward(from, to, capacity, T{}, adjacency_list[to].size());
@@ -74,33 +75,31 @@ class Graph {
     adjacency_list[to].push_back(backward);
   }
 
-  const std::vector<ResellersEdge<T>>& edges(int v) const { return adjacency_list[v]; }
-
-  std::vector<ResellersEdge<T>>& edges(int v) { return adjacency_list[v]; }
-
+  const std::vector<ResellersEdge<T>>& edges(int vertex) const { return adjacency_list[vertex]; }
+  std::vector<ResellersEdge<T>>& edges(int vertex) { return adjacency_list[vertex]; }
   int size() const { return vertex_count; }
 };
 
 template <typename T>
 class BFS {
- public:
-  static void traverse(const Graph<T>& g, int start, GraphVisitor<T>& visitor) {
-    std::vector<bool> visited(g.size(), false);
-    std::queue<int> q;
+public:
+  static void traverse(const Graph<T>& graph, int start, GraphVisitor<T>& visitor) {
+    std::vector<bool> visited(graph.size(), false);
+    std::queue<int> vertex_queue;
 
-    q.push(start);
+    vertex_queue.push(start);
     visited[start] = true;
 
-    while (!q.empty()) {
-      int v = q.front();
-      q.pop();
+    while (!vertex_queue.empty()) {
+      int vertex = vertex_queue.front();
+      vertex_queue.pop();
 
-      visitor.discover_vertex(v, g);
+      visitor.discover_vertex(vertex, graph);
 
-      for (const auto& ResellersEdge : g.edges(v)) {
-        if (!visited[ResellersEdge.to] && ResellersEdge.flow < ResellersEdge.capacity) {
-          visited[ResellersEdge.to] = true;
-          q.push(ResellersEdge.to);
+      for (const auto& edge : graph.edges(vertex)) {
+        if (!visited[edge.to] && edge.flow < edge.capacity) {
+          visited[edge.to] = true;
+          vertex_queue.push(edge.to);
         }
       }
     }
@@ -109,9 +108,9 @@ class BFS {
 
 template <typename T>
 class FlowNetwork : public Graph<T> {
- private:
+private:
   std::vector<int> level;
-  std::vector<int> ptr;
+  std::vector<int> pointer;
 
   bool calculate_levels(int source, int sink) {
     std::fill(level.begin(), level.end(), -1);
@@ -123,19 +122,18 @@ class FlowNetwork : public Graph<T> {
     return level[sink] != -1;
   }
 
-  T dfs(int vertex, int sink, T flow) {
-    if (vertex == sink || flow == T{}) return flow;
+  T dfs(int vertex, int sink, T flow_amount) {
+    if (vertex == sink || flow_amount == T{}) return flow_amount;
 
-    for (; ptr[vertex] < this->adjacency_list[vertex].size(); ++ptr[vertex]) {
-      ResellersEdge<T>& ResellersEdge = this->adjacency_list[vertex][ptr[vertex]];
+    for (; pointer[vertex] < this->adjacency_list[vertex].size(); ++pointer[vertex]) {
+      ResellersEdge<T>& edge = this->adjacency_list[vertex][pointer[vertex]];
 
-      if (level[ResellersEdge.to] == level[vertex] + 1 && ResellersEdge.flow < ResellersEdge.capacity) {
-        T pushed =
-            dfs(ResellersEdge.to, sink, std::min(flow, ResellersEdge.capacity - ResellersEdge.flow));
+      if (level[edge.to] == level[vertex] + 1 && edge.flow < edge.capacity) {
+        T pushed = dfs(edge.to, sink, std::min(flow_amount, edge.capacity - edge.flow));
 
         if (pushed > T{}) {
-          ResellersEdge.flow += pushed;
-          this->adjacency_list[ResellersEdge.to][ResellersEdge.reverse_index].flow -= pushed;
+          edge.flow += pushed;
+          this->adjacency_list[edge.to][edge.reverse_index].flow -= pushed;
           return pushed;
         }
       }
@@ -143,14 +141,15 @@ class FlowNetwork : public Graph<T> {
     return T{};
   }
 
- public:
-  explicit FlowNetwork(int n) : Graph<T>(n), level(n), ptr(n) {}
+public:
+  explicit FlowNetwork(int vertices) 
+      : Graph<T>(vertices), level(vertices), pointer(vertices) {}
 
   T max_flow(int source, int sink) {
     T total_flow = T{};
 
     while (calculate_levels(source, sink)) {
-      std::fill(ptr.begin(), ptr.end(), 0);
+      std::fill(pointer.begin(), pointer.end(), 0);
       while (T flow = dfs(source, sink, std::numeric_limits<T>::max())) {
         total_flow += flow;
       }
@@ -161,13 +160,14 @@ class FlowNetwork : public Graph<T> {
 
 template <typename T>
 class FlowNetworkBuilder {
- private:
+private:
   int vertex_count;
   std::vector<std::pair<int, int>> edges;
   std::vector<T> vertex_capacities;
 
- public:
-  explicit FlowNetworkBuilder(int n) : vertex_count(n), vertex_capacities(n) {}
+public:
+  explicit FlowNetworkBuilder(int vertices) 
+      : vertex_count(vertices), vertex_capacities(vertices) {}
 
   void add_edge(int from, int to) { edges.emplace_back(from, to); }
 
@@ -180,8 +180,8 @@ class FlowNetworkBuilder {
     int source = vertex_count;
     int sink = vertex_count + 1;
 
-    for (int i = 0; i < vertex_count; ++i) {
-      network.add_edge(source, i, vertex_capacities[i]);
+    for (int vertex = 0; vertex < vertex_count; ++vertex) {
+      network.add_edge(source, vertex, vertex_capacities[vertex]);
     }
 
     for (const auto& [from, to] : edges) {
@@ -193,11 +193,11 @@ class FlowNetworkBuilder {
 };
 
 template <typename T, typename Predicate>
-T binary_search(T left, T right, Predicate pred) {
+T binary_search(T left, T right, Predicate predicate) {
   T result = right;
   while (left <= right) {
     T mid = left + (right - left) / 2;
-    if (pred(mid)) {
+    if (predicate(mid)) {
       result = mid;
       right = mid - 1;
     } else {
@@ -218,80 +218,80 @@ struct MacbookDistributionProblem {
   FlowNetworkBuilder<int> builder;
   int total_capacity;
 
-  explicit MacbookDistributionProblem(const InputData& data)
-      : builder(data.vertex_count),
-        total_capacity(std::accumulate(data.vertex_capacities.begin(),
-                                       data.vertex_capacities.end(), 0)) {
-    initialize_builder(data);
+  explicit MacbookDistributionProblem(const InputData& input)
+      : builder(input.vertex_count),
+        total_capacity(std::accumulate(input.vertex_capacities.begin(),
+                                     input.vertex_capacities.end(), 0)) {
+    initialize_builder(input);
   }
 
- private:
-  void initialize_builder(const InputData& data) {
-    for (int i = 0; i < data.vertex_count; ++i) {
-      builder.set_vertex_capacity(i, data.vertex_capacities[i]);
+private:
+  void initialize_builder(const InputData& input) {
+    for (int vertex = 0; vertex < input.vertex_count; ++vertex) {
+      builder.set_vertex_capacity(vertex, input.vertex_capacities[vertex]);
     }
 
-    for (const auto& [from, to] : data.edges) {
+    for (const auto& [from, to] : input.edges) {
       builder.add_edge(from, to);
     }
   }
 };
 
 class MacbookDistributionSolver {
- public:
-  static int find_min_max_load(const MacbookDistributionProblem& MacbookDistributionProblem) {
-    return binary_search(1, MacbookDistributionProblem.total_capacity,
-                         [&](int mid) { return check_flow(MacbookDistributionProblem, mid); });
+public:
+  static int find_min_max_load(const MacbookDistributionProblem& problem) {
+    return binary_search(1, problem.total_capacity,
+                        [&](int max_load) { return check_flow(problem, max_load); });
   }
 
- private:
-  static bool check_flow(const MacbookDistributionProblem& MacbookDistributionProblem, int capacity) {
-    auto network = MacbookDistributionProblem.builder.build();
-    int n = network.size() - 2;
-    int source = n;
-    int sink = n + 1;
+private:
+  static bool check_flow(const MacbookDistributionProblem& problem, int capacity) {
+    auto network = problem.builder.build();
+    int vertices = network.size() - 2;
+    int source = vertices;
+    int sink = vertices + 1;
 
-    for (int i = 0; i < n; ++i) {
-      network.add_edge(i, sink, capacity);
+    for (int vertex = 0; vertex < vertices; ++vertex) {
+      network.add_edge(vertex, sink, capacity);
     }
 
-    return network.max_flow(source, sink) == MacbookDistributionProblem.total_capacity;
+    return network.max_flow(source, sink) == problem.total_capacity;
   }
 };
 
 class InputReader {
- public:
+public:
   static InputData read() {
-    InputData data;
-    std::cin >> data.vertex_count >> data.edge_count;
+    InputData input;
+    std::cin >> input.vertex_count >> input.edge_count;
 
-    read_vertex_capacities(data);
-    read_edges(data);
+    read_vertex_capacities(input);
+    read_edges(input);
 
-    return data;
+    return input;
   }
 
- private:
-  static void read_vertex_capacities(InputData& data) {
-    data.vertex_capacities.resize(data.vertex_count);
-    for (int i = 0; i < data.vertex_count; ++i) {
-      std::cin >> data.vertex_capacities[i];
+private:
+  static void read_vertex_capacities(InputData& input) {
+    input.vertex_capacities.resize(input.vertex_count);
+    for (int vertex = 0; vertex < input.vertex_count; ++vertex) {
+      std::cin >> input.vertex_capacities[vertex];
     }
   }
 
-  static void read_edges(InputData& data) {
-    for (int i = 0; i < data.edge_count; ++i) {
+  static void read_edges(InputData& input) {
+    for (int edge = 0; edge < input.edge_count; ++edge) {
       int from, to;
       std::cin >> from >> to;
-      data.edges.emplace_back(from - 1, to - 1);
+      input.edges.emplace_back(from - 1, to - 1);
     }
   }
 };
 
 int main() {
   InputData input = InputReader::read();
-  MacbookDistributionProblem MacbookDistributionProblem(input);
-  int result = MacbookDistributionSolver::find_min_max_load(MacbookDistributionProblem);
+  MacbookDistributionProblem problem(input);
+  int result = MacbookDistributionSolver::find_min_max_load(problem);
   std::cout << result << "\n";
   return 0;
 }
