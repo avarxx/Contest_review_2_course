@@ -1,0 +1,35 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage{amsmath}
+
+\usepackage[T2A]{fontenc}
+\usepackage[russian]{babel}
+
+\begin{document}
+
+\section*{Корректность}
+
+
+\text{P входит в T только если }
+
+\begin{gather*}
+    \forall\,0 \le j < |P|\colon\;
+    P[j] = '?' \;\lor\; P[j] = T[i+j].
+\end{gather*}
+
+
+При проверке этой позиции функция \texttt{isMatch(P,T,i)} сопоставляет каждый символ
+P[j] с соответствующим T[i+j]\,,\ {либо стоит «?», либо символы равны,
+ошибок не возникает.} Значит, \(i\) попадёт в ответ.
+
+
+\textbf{}{Почему не не будет ложных срабатываний}
+\begin{gather*}
+    i + |P| \le |T|
+    \quad\text{и}\quad
+    \forall\,0 \le j < |P|\colon\;
+    P[j] = '?' \;\lor\; P[j] = T[i+j].
+\end{gather*}
+Это когда программа добавляет \(i\) а это условие и определяет, что \(P\) 
+входит в \(T\) на позиции \(i\). Следовательно, никаких неверных индексов в результат не попадает.
+
+\end{document}
