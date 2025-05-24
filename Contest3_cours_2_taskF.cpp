@@ -12,159 +12,207 @@ struct Point3D {
 };
 
 struct Face3D {
-    std::array<int, 3> vid;
-    double nx;
-    double ny;
-    double nz;
-    bool alive;
+    std::array<int, 3> vertex_indices;  
+    double normal_x;
+    double normal_y;
+    double normal_z;
+    bool is_active;                     
 };
 
 struct Plane3D {
-    double a;
+    double a;  
     double b;
     double c;
     double d;
 };
 
-static constexpr double kTol = 1e-12;
+static constexpr double kTolerance = 1e-12;
 
-Point3D Sub(const Point3D& u, const Point3D& v) { return {u.x - v.x, u.y - v.y, u.z - v.z}; }
+Point3D Subtract(const Point3D& u, const Point3D& v) { 
+    return {u.x - v.x, u.y - v.y, u.z - v.z}; 
+}
 
-double Dot(const Point3D& u, const Point3D& v) { return u.x * v.x + u.y * v.y + u.z * v.z; }
+double DotProduct(const Point3D& u, const Point3D& v) { 
+    return u.x * v.x + u.y * v.y + u.z * v.z; 
+}
 
-Point3D Cross(const Point3D& u, const Point3D& v) {
-    return {u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x};
+Point3D CrossProduct(const Point3D& u, const Point3D& v) {
+    return {
+        u.y * v.z - u.z * v.y,
+        u.z * v.x - u.x * v.z,
+        u.x * v.y - u.y * v.x
+    };
 }
 
 std::vector<Point3D> ReadPoints3D(int count) {
-    std::vector<Point3D> pts;
-    pts.reserve(count);
+    std::vector<Point3D> points;
+    points.reserve(count);
     for (int i = 0; i < count; ++i) {
         Point3D p;
         std::cin >> p.x >> p.y >> p.z;
-        pts.push_back(p);
+        points.push_back(p);
     }
-    return pts;
+    return points;
 }
 
-std::vector<Face3D> BuildConvexHull(const std::vector<Point3D>& pts) {
-    int n = pts.size();
-    int i0 = 0;
-    int i1 = 1;
-    while (i1 < n && Dot(Sub(pts[i1], pts[i0]), Sub(pts[i1], pts[i0])) < kTol) {
-        ++i1;
+std::vector<Face3D> BuildConvexHull(const std::vector<Point3D>& points) {
+    const int num_points = points.size();
+    
+    int initial_point = 0;
+    int second_distinct_point = 1;
+    while (second_distinct_point < num_points && 
+           DotProduct(Subtract(points[second_distinct_point], points[initial_point]),
+                      Subtract(points[second_distinct_point], points[initial_point])) < kTolerance) {
+        ++second_distinct_point;
     }
-    int i2 = i1 + 1;
-    while (i2 < n && Dot(Cross(Sub(pts[i1], pts[i0]), Sub(pts[i2], pts[i0])),
-                         Cross(Sub(pts[i1], pts[i0]), Sub(pts[i2], pts[i0]))) < kTol) {
-        ++i2;
+    
+    int third_noncolinear_point = second_distinct_point + 1;
+    while (third_noncolinear_point < num_points && 
+           DotProduct(CrossProduct(Subtract(points[second_distinct_point], points[initial_point]),
+                       CrossProduct(Subtract(points[third_noncolinear_point], points[initial_point])) < kTolerance) {
+        ++third_noncolinear_point;
     }
-    int i3 = i2 + 1;
-    while (i3 < n && std::abs(Dot(Cross(Sub(pts[i1], pts[i0]), Sub(pts[i2], pts[i0])),
-                                  Sub(pts[i3], pts[i0]))) < kTol) {
-        ++i3;
+    
+    int fourth_noncoplanar_point = third_noncolinear_point + 1;
+    while (fourth_noncoplanar_point < num_points && 
+           std::abs(DotProduct(CrossProduct(Subtract(points[second_distinct_point], points[initial_point]),
+                                           Subtract(points[third_noncolinear_point], points[initial_point])),
+                                  Subtract(points[fourth_noncoplanar_point], points[initial_point]))) < kTolerance) {
+        ++fourth_noncoplanar_point;
     }
-    std::array<std::array<int, 3>, 4> fidx{
-        {{{i0, i1, i2}}, {{i0, i2, i3}}, {{i1, i3, i2}}, {{i1, i0, i3}}}};
-    std::array<int, 4> opp{{i3, i1, i0, i2}};
-    std::vector<Face3D> hull;
-    hull.reserve(n * 2);
-    for (int fi = 0; fi < 4; ++fi) {
-        auto v = fidx[fi];
-        Point3D norm = Cross(Sub(pts[v[1]], pts[v[0]]), Sub(pts[v[2]], pts[v[0]]));
-        if (Dot(norm, Sub(pts[opp[fi]], pts[v[0]])) > 0) {
-            std::swap(v[1], v[2]);
-            norm.x = -norm.x;
-            norm.y = -norm.y;
-            norm.z = -norm.z;
-        }
-        hull.push_back({v, norm.x, norm.y, norm.z, true});
+    
+    std::array<std::array<int, 3>, 4> face_vertices = {{
+        {{initial_point, second_distinct_point, third_noncolinear_point}},
+        {{initial_point, third_noncolinear_point, fourth_noncoplanar_point}},
+        {{second_distinct_point, fourth_noncoplanar_point, third_noncolinear_point}},
+        {{second_distinct_point, initial_point, fourth_noncoplanar_point}}
+    }};
+    
+    std::vector<Face3D> convex_hull;
+    convex_hull.reserve(num_points * 2);
+    for (const auto& face : face_vertices) {
+        Point3D normal = CrossProduct(
+            Subtract(points[face[1]], points[face[0]]),
+            Subtract(points[face[2]], points[face[0]])
+        );
+        convex_hull.push_back({
+            face,
+            normal.x,
+            normal.y,
+            normal.z,
+            true
+        });
     }
-    for (int pi = 0; pi < n; ++pi) {
-        if (pi == i0 || pi == i1 || pi == i2 || pi == i3) {
+    
+    for (int point_index = 0; point_index < num_points; ++point_index) {
+        if (point_index == initial_point || 
+            point_index == second_distinct_point || 
+            point_index == third_noncolinear_point || 
+            point_index == fourth_noncoplanar_point) {
             continue;
         }
-        std::vector<bool> vis(hull.size());
-        bool any = false;
-        for (size_t hi = 0; hi < hull.size(); ++hi) {
-            if (!hull[hi].alive)
-                continue;
-            Point3D base = pts[hull[hi].vid[0]];
-            double dist = hull[hi].nx * (pts[pi].x - base.x) + hull[hi].ny * (pts[pi].y - base.y) +
-                          hull[hi].nz * (pts[pi].z - base.z);
-            if (dist > kTol) {
-                vis[hi] = true;
-                any = true;
+        
+        std::vector<bool> is_visible(convex_hull.size(), false);
+        bool has_visible = false;
+        for (size_t face_index = 0; face_index < convex_hull.size(); ++face_index) {
+            const Face3D& face = convex_hull[face_index];
+            if (!face.is_active) continue;
+            
+            const Point3D base = points[face.vertex_indices[0]];
+            const double distance = face.normal_x * (points[point_index].x - base.x) +
+                                   face.normal_y * (points[point_index].y - base.y) +
+                                   face.normal_z * (points[point_index].z - base.z);
+            
+            if (distance > kTolerance) {
+                is_visible[face_index] = true;
+                has_visible = true;
             }
         }
-        if (!any)
-            continue;
-        std::vector<std::pair<int, int>> boundary;
-        for (size_t hi = 0; hi < hull.size(); ++hi) {
-            if (!vis[hi])
-                continue;
-            auto face = hull[hi];
-            for (int e = 0; e < 3; ++e) {
-                int u = face.vid[e];
-                int v = face.vid[(e + 1) % 3];
-                bool removed = false;
-                for (auto it = boundary.begin(); it != boundary.end(); ++it) {
+        
+        if (!has_visible) continue;
+        
+        std::vector<std::pair<int, int>> boundary_edges;
+        for (size_t face_index = 0; face_index < convex_hull.size(); ++face_index) {
+            if (!is_visible[face_index]) continue;
+            
+            const Face3D& face = convex_hull[face_index];
+            for (int edge = 0; edge < 3; ++edge) {
+                int u = face.vertex_indices[edge];
+                int v = face.vertex_indices[(edge + 1) % 3];
+                
+                bool is_removed = false;
+                for (auto it = boundary_edges.begin(); it != boundary_edges.end(); ++it) {
                     if (it->first == v && it->second == u) {
-                        boundary.erase(it);
-                        removed = true;
+                        boundary_edges.erase(it);
+                        is_removed = true;
                         break;
                     }
                 }
-                if (!removed) {
-                    boundary.emplace_back(u, v);
+                if (!is_removed) {
+                    boundary_edges.emplace_back(u, v);
                 }
             }
-            hull[hi].alive = false;
+            convex_hull[face_index].is_active = false;
         }
-        for (auto edge : boundary) {
-            Point3D norm =
-                Cross(Sub(pts[edge.second], pts[edge.first]), Sub(pts[pi], pts[edge.first]));
-            hull.push_back({{edge.first, edge.second, pi}, norm.x, norm.y, norm.z, true});
+        
+        for (const auto& edge : boundary_edges) {
+            Point3D normal = CrossProduct(
+                Subtract(points[edge.second], points[edge.first]),
+                Subtract(points[point_index], points[edge.first])
+            );
+            convex_hull.push_back({
+                {edge.first, edge.second, point_index},
+                normal.x,
+                normal.y,
+                normal.z,
+                true
+            });
         }
     }
-    return hull;
+    
+    return convex_hull;
 }
 
-std::vector<Plane3D> ExtractPlanes(const std::vector<Face3D>& faces,
-                                   const std::vector<Point3D>& pts) {
+std::vector<Plane3D> ExtractPlanes(const std::vector<Face3D>& faces, const std::vector<Point3D>& points) {
     std::vector<Plane3D> planes;
     planes.reserve(faces.size());
-    for (auto const& f : faces) {
-        if (!f.alive)
-            continue;
-        double normLen = std::sqrt(f.nx * f.nx + f.ny * f.ny + f.nz * f.nz);
-        double ia = 1.0 / normLen;
-        double a = f.nx * ia;
-        double b = f.ny * ia;
-        double c = f.nz * ia;
-        Point3D base = pts[f.vid[0]];
-        double d = -(a * base.x + b * base.y + c * base.z);
+    for (const Face3D& face : faces) {
+        if (!face.is_active) continue;
+        
+        const double norm_length = std::sqrt(face.normal_x * face.normal_x + 
+                                           face.normal_y * face.normal_y + 
+                                           face.normal_z * face.normal_z);
+        const double inv_norm = 1.0 / norm_length;
+        const double a = face.normal_x * inv_norm;
+        const double b = face.normal_y * inv_norm;
+        const double c = face.normal_z * inv_norm;
+        const Point3D base = points[face.vertex_indices[0]];
+        const double d = -(a * base.x + b * base.y + c * base.z);
+        
         planes.push_back({a, b, c, d});
     }
     return planes;
 }
 
-std::vector<double> QueryDistances(const std::vector<Plane3D>& planes, int queries) {
-    std::vector<double> result;
-    result.reserve(queries);
-    for (int qi = 0; qi < queries; ++qi) {
-        Point3D q;
-        std::cin >> q.x >> q.y >> q.z;
-        double best = std::numeric_limits<double>::infinity();
-        for (auto const& pl : planes) {
-            double v = pl.a * q.x + pl.b * q.y + pl.c * q.z + pl.d;
-            double d = v < 0 ? -v : v;
-            if (d < best)
-                best = d;
+std::vector<double> CalculateDistances(const std::vector<Plane3D>& planes, int query_count) {
+    std::vector<double> distances;
+    distances.reserve(query_count);
+    for (int query_index = 0; query_index < query_count; ++query_index) {
+        Point3D query_point;
+        std::cin >> query_point.x >> query_point.y >> query_point.z;
+        
+        double min_distance = std::numeric_limits<double>::max();
+        for (const Plane3D& plane : planes) {
+            const double value = plane.a * query_point.x + plane.b * query_point.y + 
+                                plane.c * query_point.z + plane.d;
+            const double distance = std::abs(value);
+            if (distance < min_distance) {
+                min_distance = distance;
+            }
         }
-        result.push_back(best);
+        distances.push_back(min_distance);
     }
-    return result;
+    return distances;
 }
 
 int main() {
@@ -173,15 +221,18 @@ int main() {
 
     int n;
     std::cin >> n;
-    auto pts = ReadPoints3D(n);
-    auto hull = BuildConvexHull(pts);
-    auto planes = ExtractPlanes(hull, pts);
+    const auto points = ReadPoints3D(n);
+    const auto convex_hull = BuildConvexHull(points);
+    const auto planes = ExtractPlanes(convex_hull, points);
+    
     int q;
     std::cin >> q;
-    auto distances = QueryDistances(planes, q);
-    std::cout << std::fixed << std::setprecision(10);
-    for (double d : distances) {
-        std::cout << d << "\n";
+    const auto distances = CalculateDistances(planes, q);
+    
+    std::cout << std::fixed << std::setprecision(4);
+    for (const double distance : distances) {
+        std::cout << distance << "\n";
     }
+    
     return 0;
 }
