@@ -1,0 +1,58 @@
+#include <iostream>
+#include <string>
+#include <vector>
+
+void input(std::string &pattern, std::string &text) {
+  std::cin >> pattern >> text;
+}
+
+bool isMatch(const std::string &pattern, const std::string &text, int pos) {
+  if (pos + pattern.length() > text.length()) {
+    return false;
+  }
+
+  for (size_t i = 0; i < pattern.length(); ++i) {
+    if (pattern[i] != '?' && pattern[i] != text[pos + i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::vector<int> findMatch(const std::string &pattern,
+                                const std::string &text) {
+  std::vector<int> positions;
+
+  for (int i = 0; i <= (int)text.length() - (int)pattern.length(); ++i) {
+    if (isMatch(pattern, text, i)) {
+      positions.push_back(i);
+    }
+  }
+
+  return positions;
+}
+
+void output(const std::vector<int> &positions) {
+  if (!positions.empty()) {
+    for (size_t i = 0; i < positions.size(); ++i) {
+      std::cout << positions[i];
+      if (i < positions.size() - 1) {
+        std::cout << " ";
+      }
+    }
+    std::cout << std::endl;
+  }
+}
+
+int main() {
+  std::ios_base::sync_with_stdio(false);
+  std::cin.tie(nullptr);
+
+  std::string pattern, text;
+  input(pattern, text);
+
+  std::vector<int> positions = findMatch(pattern, text);
+  output(positions);
+
+  return 0;
+}
